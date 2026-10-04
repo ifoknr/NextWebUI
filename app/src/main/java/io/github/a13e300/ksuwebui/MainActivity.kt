@@ -3,14 +3,19 @@ package io.github.a13e300.ksuwebui
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.view.LayoutInflater
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.HapticFeedbackConstants
-import android.view.Menu
-import android.widget.Toast
-import androidx.appcompat.widget.SearchView
+import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
@@ -19,23 +24,28 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import java.util.Locale
+import com.google.android.material.color.MaterialColors
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.topjohnwu.superuser.nio.FileSystemManager
 import io.github.a13e300.ksuwebui.databinding.ActivityMainBinding
 import io.github.a13e300.ksuwebui.databinding.ItemModuleBinding
-import androidx.core.net.toUri
-import androidx.core.content.edit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 class MainActivity : AppCompatActivity(), FileSystemService.Listener {
     private lateinit var binding: ActivityMainBinding
     private var moduleList = emptyList<Module>()
     private var searchQuery = ""
     private var loading = false
+    private var page = Page.MODULES
+    private var fs: FileSystemManager? = null
     private val adapter = Adapter()
     private val prefs by lazy { getSharedPreferences("settings", MODE_PRIVATE) }
     private var shouldRefresh = false
+    private var forceUpdateCheck = false
+
+    private enum class Page { MODULES, UPDATES, SETTINGS }
 
     private fun getPinnedModules(): MutableSet<String> {
         return prefs.getStringSet("pinned_modules", emptySet<String>())?.toMutableSet() ?: mutableSetOf()
@@ -46,110 +56,112 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Enable edge to edge
         enableEdgeToEdge()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
         }
-
         super.onCreate(savedInstanceState)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        setSupportActionBar(binding.toolbar)
 
         lifecycleScope.launch(Dispatchers.IO) {
             AppList.getApps(this@MainActivity)
         }
 
-        // Add insets
-        ViewCompat.setOnApplyWindowInsetsListener(binding.appbar) { v, insets ->
-            val cutoutAndBars = insets.getInsets(
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
+            val bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
             )
-            v.updatePadding(left = cutoutAndBars.left, top = cutoutAndBars.top, right = cutoutAndBars.right)
-            return@setOnApplyWindowInsetsListener insets
-        }
-        val listBottomPadding = binding.list.paddingBottom
-        ViewCompat.setOnApplyWindowInsetsListener(binding.list) { v, insets ->
-            val cutoutAndBars = insets.getInsets(
-                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
-            )
-            v.updatePadding(left = cutoutAndBars.left, bottom = listBottomPadding + cutoutAndBars.bottom, right = cutoutAndBars.right)
-            return@setOnApplyWindowInsetsListener insets
+            v.updatePadding(left = bars.left, top = bars.top, right = bars.right)
+            binding.bottomNav.updatePadding(bottom = bars.bottom)
+            insets
         }
 
         binding.list.setHasFixedSize(true)
         binding.list.adapter = adapter
-        binding.swipeRefresh.setColorSchemeColors(
-            com.google.android.material.color.MaterialColors.getColor(binding.root, android.R.attr.colorPrimary)
-        )
+        binding.list.itemAnimator?.changeDuration = 0
+        binding.swipeRefresh.setColorSchemeColors(MaterialColors.getColor(binding.root, android.R.attr.colorPrimary))
         binding.swipeRefresh.setProgressBackgroundColorSchemeColor(
-            com.google.android.material.color.MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorSurfaceContainerHigh)
+            MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorSurfaceContainerHigh)
         )
         binding.swipeRefresh.setOnRefreshListener {
+            forceUpdateCheck = true
             refresh()
         }
+
+        setupSearch()
+
+        SettingsPage(this, binding.settingsContainer, prefs) { refresh() }.build()
+
+        binding.bottomNav.setOnItemSelectedListener { item ->
+            showPage(
+                when (item.itemId) {
+                    R.id.nav_updates -> Page.UPDATES
+                    R.id.nav_settings -> Page.SETTINGS
+                    else -> Page.MODULES
+                }
+            )
+            true
+        }
+        binding.bottomNav.setOnItemReselectedListener {
+            if (page != Page.SETTINGS) binding.list.smoothScrollToPosition(0)
+        }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (page != Page.MODULES) {
+                    binding.bottomNav.selectedItemId = R.id.nav_modules
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+
+        savedInstanceState?.getString("page")?.let { saved ->
+            Page.entries.firstOrNull { it.name == saved }?.let { page = it }
+        }
+        // Selecting the item fires the listener, which calls showPage().
+        binding.bottomNav.selectedItemId = when (page) {
+            Page.MODULES -> R.id.nav_modules
+            Page.UPDATES -> R.id.nav_updates
+            Page.SETTINGS -> R.id.nav_settings
+        }
+        showPage(page)
         refresh()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.main_menu, menu)
-        (menu.findItem(R.id.search).actionView as? SearchView)?.apply {
-            queryHint = getString(R.string.search)
-            maxWidth = Int.MAX_VALUE
-            setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-                override fun onQueryTextSubmit(text: String?): Boolean {
-                    clearFocus()
-                    return true
-                }
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString("page", page.name)
+    }
 
-                override fun onQueryTextChange(text: String?): Boolean {
-                    searchQuery = text.orEmpty().trim()
-                    submitList()
-                    return true
-                }
-            })
-        }
-        menu.findItem(R.id.enable_webview_debugging).apply {
-            isChecked = prefs.getBoolean("enable_web_debugging", BuildConfig.DEBUG)
-            setOnMenuItemClickListener {
-                val newValue = !it.isChecked
-                prefs.edit { putBoolean("enable_web_debugging", newValue) }
-                it.isChecked = newValue
-                true
+    private fun setupSearch() {
+        binding.search.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                searchQuery = s?.toString().orEmpty().trim()
+                binding.searchClear.isVisible = !s.isNullOrEmpty()
+                submitList()
             }
-        }
-        menu.findItem(R.id.show_disabled).apply {
-            isChecked = prefs.getBoolean("show_disabled", false)
-            setOnMenuItemClickListener {
-                val newValue = !it.isChecked
-                prefs.edit { putBoolean("show_disabled", newValue) }
-                it.isChecked = newValue
-                refresh()
+        })
+        binding.search.setOnEditorActionListener { v, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(v.windowToken, 0)
+                v.clearFocus()
                 true
-            }
+            } else false
         }
-        menu.findItem(R.id.dynamic_colors).apply {
-            // Wallpaper colors need Android 12+
-            isVisible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-            isChecked = prefs.getBoolean(App.PREF_DYNAMIC_COLORS, false)
-            setOnMenuItemClickListener {
-                prefs.edit(commit = true) { putBoolean(App.PREF_DYNAMIC_COLORS, !it.isChecked) }
-                recreate()
-                true
-            }
-        }
-        menu.findItem(R.id.enable_monet).apply {
-            isChecked = prefs.getBoolean("enable_monet", true)
-            setOnMenuItemClickListener {
-                val newValue = !it.isChecked
-                prefs.edit { putBoolean("enable_monet", newValue) }
-                it.isChecked = newValue
-                true
-            }
-        }
-        return true
+        binding.searchClear.setOnClickListener { binding.search.text?.clear() }
+    }
+
+    private fun showPage(p: Page) {
+        page = p
+        binding.listPage.isVisible = p != Page.SETTINGS
+        binding.settingsPage.isVisible = p == Page.SETTINGS
+        binding.title.setText(if (p == Page.UPDATES) R.string.nav_updates else R.string.app_name)
+        if (p != Page.SETTINGS) submitList()
     }
 
     override fun onResume() {
@@ -163,9 +175,7 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
     private fun refresh() {
         binding.swipeRefresh.isRefreshing = true
         loading = true
-        if (moduleList.isEmpty()) {
-            showInfo(R.string.loading)
-        }
+        if (moduleList.isEmpty()) showInfo(R.string.loading)
         FileSystemService.start(this)
     }
 
@@ -186,13 +196,26 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
     }
 
     private fun submitList() {
-        val filtered = moduleList.filter { it.matches(searchQuery) }
+        val source = if (page == Page.UPDATES) moduleList.filter { it.update != null } else moduleList
+        val filtered = source.filter { it.matches(searchQuery) }
         adapter.submitList(filtered)
-        binding.toolbar.subtitle = if (moduleList.isEmpty()) null
-        else resources.getQuantityString(R.plurals.modules_count, moduleList.size, moduleList.size)
+        val updates = moduleList.count { it.update != null }
+        binding.subtitle.text = when {
+            moduleList.isEmpty() -> ""
+            page == Page.UPDATES -> resources.getQuantityString(R.plurals.updates_count, updates, updates)
+            else -> {
+                val count = resources.getQuantityString(R.plurals.modules_count, moduleList.size, moduleList.size)
+                if (updates > 0) count + "  ·  " + resources.getQuantityString(R.plurals.updates_count, updates, updates)
+                else count
+            }
+        }
+        val badge = binding.bottomNav.getOrCreateBadge(R.id.nav_updates)
+        badge.isVisible = updates > 0
+        badge.number = updates
         when {
             loading && moduleList.isEmpty() -> showInfo(R.string.loading)
             moduleList.isEmpty() -> showInfo(R.string.no_modules)
+            page == Page.UPDATES && source.isEmpty() -> showInfo(R.string.no_updates)
             filtered.isEmpty() -> showInfo(R.string.no_results)
             else -> showInfo(null)
         }
@@ -201,40 +224,34 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
     private fun sortModules(list: List<Module>) =
         list.sortedWith(compareByDescending<Module> { it.pinned }.thenBy { it.name.lowercase(Locale.ROOT) })
 
+    private fun withUpdates(list: List<Module>) = list.map { it.copy(update = UpdateChecker.cached(it.id)) }
+
     override fun onServiceAvailable(fs: FileSystemManager) {
+        this.fs = fs
+        val showDisabled = prefs.getBoolean(Prefs.SHOW_DISABLED, false)
+        val webUIOnly = prefs.getBoolean(Prefs.WEBUI_ONLY, false)
+        val checkUpdates = prefs.getBoolean(Prefs.CHECK_UPDATES, true)
+        val force = forceUpdateCheck
+        forceUpdateCheck = false
+        if (force) BannerLoader.clear()
         App.executor.submit {
-            val mods = mutableListOf<Module>()
-            val showDisabled = prefs.getBoolean("show_disabled", false)
-            val pinnedIds = getPinnedModules()
-            fs.getFile("/data/adb/modules").listFiles()?.forEach { f ->
-                if (!f.isDirectory) return@forEach
-                if (!isValidModuleId(f.name)) return@forEach
-                if (!fs.getFile(f, "webroot").isDirectory) return@forEach
-                val propFile = fs.getFile(f, "module.prop")
-                if (!propFile.exists()) return@forEach
-                val disabled = fs.getFile(f, "disable").exists()
-                if (disabled && !showDisabled) return@forEach
-                val props = runCatching { parseModuleProp(propFile.newInputStream()) }.getOrDefault(emptyMap())
-                val id = f.name
-                mods.add(
-                    Module(
-                        name = props["name"]?.takeIf { it.isNotBlank() } ?: id,
-                        id = id,
-                        desc = props["description"].orEmpty(),
-                        author = props["author"].orEmpty(),
-                        version = props["version"].orEmpty(),
-                        disabled = disabled,
-                        pinned = id in pinnedIds
-                    )
-                )
-            }
-            val sorted = sortModules(mods)
+            val mods = runCatching {
+                ModuleLoader.load(fs, showDisabled, webUIOnly, getPinnedModules())
+            }.getOrDefault(emptyList())
+            val sorted = sortModules(withUpdates(mods))
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
                 loading = false
                 moduleList = sorted
                 binding.swipeRefresh.isRefreshing = false
                 submitList()
+            }
+            if (checkUpdates && UpdateChecker.check(mods, force)) {
+                runOnUiThread {
+                    if (isDestroyed) return@runOnUiThread
+                    moduleList = withUpdates(moduleList)
+                    submitList()
+                }
             }
         }
     }
@@ -243,7 +260,7 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
         loading = false
         moduleList = emptyList()
         adapter.submitList(emptyList())
-        binding.toolbar.subtitle = null
+        binding.subtitle.text = ""
         showInfo(R.string.please_grant_root)
         binding.swipeRefresh.isRefreshing = false
     }
@@ -258,15 +275,31 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
         Toast.makeText(this, if (pinned) R.string.pin_added else R.string.pin_removed, Toast.LENGTH_SHORT).show()
     }
 
-    data class Module(
-        val name: String,
-        val id: String,
-        val desc: String,
-        val author: String,
-        val version: String,
-        val disabled: Boolean = false,
-        val pinned: Boolean = false
-    )
+    private fun openWebUI(item: Module) {
+        shouldRefresh = true
+        startActivity(
+            Intent(this, WebUIActivity::class.java)
+                .setData("ksuwebui://webui/${item.id}".toUri())
+                .putExtra("id", item.id)
+                .putExtra("name", item.name)
+        )
+    }
+
+    private fun openUrl(url: String) {
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
+            .onFailure { Toast.makeText(this, R.string.no_browser, Toast.LENGTH_SHORT).show() }
+    }
+
+    private fun showUpdate(item: Module) {
+        val info = item.update ?: return
+        val builder = MaterialAlertDialogBuilder(this)
+            .setTitle(item.name)
+            .setMessage(getString(R.string.update_message, item.version, info.version))
+            .setNegativeButton(android.R.string.cancel, null)
+        info.zipUrl?.let { url -> builder.setPositiveButton(R.string.download) { _, _ -> openUrl(url) } }
+        info.changelog?.let { url -> builder.setNeutralButton(R.string.changelog) { _, _ -> openUrl(url) } }
+        builder.show()
+    }
 
     class ViewHolder(val binding: ItemModuleBinding) : RecyclerView.ViewHolder(binding.root)
 
@@ -277,36 +310,34 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
 
     inner class Adapter : ListAdapter<Module, ViewHolder>(ModuleDiff) {
 
+        private fun ViewHolder.item(): Module? = currentList.getOrNull(bindingAdapterPosition)
+
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val holder = ViewHolder(
-                ItemModuleBinding.inflate(
-                    LayoutInflater.from(parent.context), parent, false
-                )
-            )
-            holder.binding.root.setOnClickListener {
-                val item = currentList.getOrNull(holder.bindingAdapterPosition) ?: return@setOnClickListener
-                shouldRefresh = true
-                startActivity(
-                    Intent(this@MainActivity, WebUIActivity::class.java)
-                        .setData("ksuwebui://webui/${item.id}".toUri())
-                        .putExtra("id", item.id)
-                        .putExtra("name", item.name)
-                )
+            val holder = ViewHolder(ItemModuleBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+            val b = holder.binding
+            b.root.setOnClickListener {
+                val item = holder.item() ?: return@setOnClickListener
+                if (item.hasWebUI) openWebUI(item)
             }
-            holder.binding.root.setOnLongClickListener { v ->
-                val item = currentList.getOrNull(holder.bindingAdapterPosition) ?: return@setOnLongClickListener false
+            b.root.setOnLongClickListener { v ->
+                val item = holder.item() ?: return@setOnLongClickListener false
                 v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                 togglePin(item)
                 true
             }
+            b.btnOpen.setOnClickListener { holder.item()?.let { openWebUI(it) } }
+            b.btnAction.setOnClickListener { holder.item()?.let { ActionRunner.run(this@MainActivity, it) } }
+            b.btnSupport.setOnClickListener { holder.item()?.support?.let { openUrl(it) } }
+            b.btnDonate.setOnClickListener { holder.item()?.donate?.let { openUrl(it) } }
+            b.updateChip.setOnClickListener { holder.item()?.let { showUpdate(it) } }
             return holder
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = getItem(position)
             val b = holder.binding
+            BannerLoader.bind(this@MainActivity, b.banner, item, fs)
             b.name.text = item.name
-            b.avatar.text = item.name.avatarLetter()
             b.meta.text = listOf(item.version, item.author)
                 .filter { it.isNotBlank() }
                 .joinToString("  ·  ")
@@ -314,15 +345,14 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
             b.desc.text = item.desc
             b.desc.isVisible = item.desc.isNotBlank()
             b.pin.isVisible = item.pinned
+            b.updateChip.isVisible = item.update != null
+            b.btnOpen.isVisible = item.hasWebUI
+            b.btnAction.isVisible = item.hasAction
+            b.btnSupport.isVisible = item.support != null
+            b.btnDonate.isVisible = item.donate != null
+            b.buttons.isVisible = item.hasWebUI || item.hasAction || item.support != null || item.donate != null
             b.root.alpha = if (item.disabled) 0.55f else 1f
         }
-    }
-
-    private fun String.avatarLetter(): String {
-        val i = indexOfFirst { it.isLetterOrDigit() }
-        if (i < 0) return "•"
-        val cp = codePointAt(i)
-        return String(Character.toChars(cp)).uppercase()
     }
 
     override fun onDestroy() {

@@ -23,6 +23,7 @@ class App : Application() {
         Shell.setDefaultBuilder(Shell.Builder.create().setFlags(Shell.FLAG_MOUNT_MASTER))
         // The calm palette is the default; wallpaper colors are opt-in.
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        Prefs.applyThemeMode(prefs)
         DynamicColors.applyToActivitiesIfAvailable(
             this,
             DynamicColorsOptions.Builder()

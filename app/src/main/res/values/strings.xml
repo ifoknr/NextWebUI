@@ -27,4 +27,48 @@
         <item quantity="one">%d module</item>
         <item quantity="other">%d modules</item>
     </plurals>
+    <string name="search_hint">Search modules</string>
+    <string name="clear">Clear</string>
+    <string name="nav_modules">Modules</string>
+    <string name="nav_updates">Updates</string>
+    <string name="settings">Settings</string>
+    <string name="update_available">Update</string>
+    <string name="open_webui">Open</string>
+    <string name="action">Action</string>
+    <string name="support">Support</string>
+    <string name="donate">Donate</string>
+    <string name="action_running">Running action…</string>
+    <string name="action_done">Done</string>
+    <string name="action_failed">Finished with exit code %d</string>
+    <string name="close">Close</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="theme">Theme</string>
+    <string name="theme_summary">Light, dark or follow the system</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="dynamic_colors_summary">Use colors from your wallpaper</string>
+    <string name="show_disabled_summary">Also list modules that are turned off</string>
+    <string name="webui_only">WebUI modules only</string>
+    <string name="webui_only_summary">Hide modules without a web interface</string>
+    <string name="check_updates">Check for updates</string>
+    <string name="check_updates_summary">Uses each module\'s updateJson</string>
+    <string name="settings_webui">WebUI</string>
+    <string name="monet_summary">Pass the app colors to module pages as CSS</string>
+    <string name="debugging_summary">Inject Eruda developer tools</string>
+    <string name="settings_general">General</string>
+    <string name="language">Language</string>
+    <string name="language_summary">Choose the app language</string>
+    <string name="about">About</string>
+    <string name="about_summary">Source code and version</string>
+    <string name="no_updates">All modules are up to date</string>
+    <string name="no_browser">No app can open this link</string>
+    <string name="update_message">Installed: %1$s
+Available: %2$s</string>
+    <string name="download">Download</string>
+    <string name="changelog">Changelog</string>
+    <plurals name="updates_count">
+        <item quantity="one">%d update</item>
+        <item quantity="other">%d updates</item>
+    </plurals>
 </resources>
