@@ -80,6 +80,9 @@ class WebUIActivity : ComponentActivity(), FileSystemService.Listener {
                         contentResolver.openOutputStream(uri)?.use { it.write(data) }
                     } catch (e: Exception) {
                         e.printStackTrace()
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@WebUIActivity, R.string.save_failed, Toast.LENGTH_SHORT).show()
+                        }
                     } finally {
                         pendingSaveData = null
                     }
@@ -171,6 +174,7 @@ class WebUIActivity : ComponentActivity(), FileSystemService.Listener {
     override fun onDestroy() {
         super.onDestroy()
         FileSystemService.removeListener(this)
+        webUIState.webviewInterface?.destroy()
         webUIState.webView?.destroy()
     }
 }

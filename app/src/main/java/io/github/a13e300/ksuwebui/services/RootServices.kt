@@ -18,8 +18,13 @@ class RootServices : RootService() {
         val result = mutableListOf<Int>()
         val um = getSystemService(USER_SERVICE) as UserManager
         val userProfiles = um.userProfiles
+        val getIdentifier = runCatching {
+            android.os.UserHandle::class.java.getMethod("getIdentifier")
+        }.getOrNull()
         for (userProfile in userProfiles) {
-            result.add(userProfile.hashCode())
+            // UserHandle.getIdentifier() is hidden; hashCode() happens to match it on AOSP.
+            val id = runCatching { getIdentifier?.invoke(userProfile) as? Int }.getOrNull()
+            result.add(id ?: userProfile.hashCode())
         }
         return result
     }

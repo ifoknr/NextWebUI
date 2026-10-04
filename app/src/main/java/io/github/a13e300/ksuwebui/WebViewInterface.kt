@@ -60,12 +60,16 @@ class WebViewInterface(private val state: WebUIState) {
 
         val cwd = opts.optString("cwd")
         if (!TextUtils.isEmpty(cwd)) {
-            sb.append("cd ${cwd};")
+            sb.append("cd ${shellQuote(cwd)};")
         }
 
         opts.optJSONObject("env")?.let { env ->
             env.keys().forEach { key ->
-                sb.append("export ${key}=${env.getString(key)};")
+                if (!isValidEnvKey(key)) {
+                    Log.w(TAG, "ignoring invalid env key: $key")
+                    return@forEach
+                }
+                sb.append("export ${key}=${shellQuote(env.getString(key))};")
             }
         }
     }
@@ -76,6 +80,10 @@ class WebViewInterface(private val state: WebUIState) {
         options: String?,
         callbackFunc: String
     ) {
+        if (!isValidJsCallback(callbackFunc)) {
+            Log.e(TAG, "exec: invalid callback name")
+            return
+        }
         val finalCommand = StringBuilder()
         processOptions(finalCommand, options)
         finalCommand.append(cmd)
@@ -99,6 +107,10 @@ class WebViewInterface(private val state: WebUIState) {
 
     @JavascriptInterface
     fun spawn(command: String, args: String, options: String?, callbackFunc: String) {
+        if (!isValidJsCallback(callbackFunc)) {
+            Log.e(TAG, "spawn: invalid callback name")
+            return
+        }
         val finalCommand = StringBuilder()
 
         processOptions(finalCommand, options)
@@ -107,7 +119,7 @@ class WebViewInterface(private val state: WebUIState) {
             finalCommand.append(command).append(" ")
             JSONArray(args).let { argsArray ->
                 for (i in 0 until argsArray.length()) {
-                    finalCommand.append(argsArray.getString(i))
+                    finalCommand.append(shellQuote(argsArray.getString(i)))
                     finalCommand.append(" ")
                 }
             }
@@ -210,7 +222,12 @@ class WebViewInterface(private val state: WebUIState) {
         currentModuleInfo.put("moduleDir", modDir)
         val moduleId = File(modDir).name
         currentModuleInfo.put("id", moduleId)
-        // TODO: more
+        val props = runCatching {
+            SuFile("$modDir/module.prop").newInputStream().use { parseModuleProp(it) }
+        }.getOrDefault(emptyMap())
+        for (key in listOf("name", "version", "versionCode", "author", "description")) {
+            props[key]?.let { currentModuleInfo.put(key, it) }
+        }
         return currentModuleInfo.toString()
     }
 
@@ -323,9 +340,12 @@ class DownloadInterface(private val state: WebUIState) {
     fun save(base64: String, fileName: String, mimetype: String) {
         try {
             val data = Base64.decode(base64, Base64.DEFAULT)
-            state.onSaveFileRequest?.invoke(data, fileName, mimetype)
+            webView.post { state.onSaveFileRequest?.invoke(data, fileName, mimetype) }
         } catch (e: Exception) {
             Log.e(TAG, "Save failed", e)
+            webView.post {
+                Toast.makeText(context, R.string.save_failed, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Calm sage palette (light) -->
+    <color name="calm_primary">#3A6A62</color>
+    <color name="calm_on_primary">#FFFFFF</color>
+    <color name="calm_primary_container">#BCECE3</color>
+    <color name="calm_on_primary_container">#00201C</color>
+    <color name="calm_secondary">#4A635F</color>
+    <color name="calm_on_secondary">#FFFFFF</color>
+    <color name="calm_secondary_container">#CCE8E2</color>
+    <color name="calm_on_secondary_container">#05201C</color>
+    <color name="calm_tertiary">#456179</color>
+    <color name="calm_tertiary_container">#CCE5FF</color>
+    <color name="calm_on_tertiary_container">#001E31</color>
+    <color name="calm_background">#F5FBF8</color>
+    <color name="calm_on_background">#171D1B</color>
+    <color name="calm_surface">#F5FBF8</color>
+    <color name="calm_on_surface">#171D1B</color>
+    <color name="calm_surface_variant">#DAE5E1</color>
+    <color name="calm_on_surface_variant">#3F4946</color>
+    <color name="calm_outline">#6F7976</color>
+    <color name="calm_outline_variant">#BEC9C5</color>
+    <color name="calm_surface_container_lowest">#FFFFFF</color>
+    <color name="calm_surface_container_low">#EFF5F2</color>
+    <color name="calm_surface_container">#E9EFEC</color>
+    <color name="calm_surface_container_high">#E3EAE7</color>
+    <color name="calm_surface_container_highest">#DEE4E1</color>
+</resources>

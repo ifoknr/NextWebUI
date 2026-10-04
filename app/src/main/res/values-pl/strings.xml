@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="enable_webview_debugging">Debugowanie</string>
+    <string name="please_grant_root">Proszę o nadanie roota</string>
+    <string name="no_modules">Brak modułów</string>
+    <string name="loading">Ładowanie…</string>
+    <string name="author">Autor: %s</string>
+    <string name="version">Wersja: %s</string>
+    <string name="show_disabled">Pokaż wyłączone</string>
+    <string name="enable_monet_color">Kolory motywu w WebUI</string>
+    <string name="start_downloading">Rozpoczynanie pobierania</string>
+    <string name="download_failed">Pobieranie nieudane: %s</string>
+    <string name="search">Szukaj</string>
+    <string name="pinned">Przypięty</string>
+    <string name="dynamic_colors">Kolory tapety</string>
+    <string name="no_results">Brak wyników</string>
+    <string name="pin_added">Przypięto na górze</string>
+    <string name="pin_removed">Odpięto</string>
+    <string name="dialog_alert">Uwaga</string>
+    <string name="dialog_confirm">Potwierdź</string>
+    <string name="dialog_prompt">Wprowadź</string>
+    <string name="save_failed">Nie można zapisać pliku</string>
+    <string name="unknown">Nieznany</string>
+    <string name="invalid_module">Nieprawidłowy moduł</string>
+    <plurals name="modules_count">
+        <item quantity="one">%d moduł</item>
+        <item quantity="few">%d moduły</item>
+        <item quantity="many">%d modułów</item>
+        <item quantity="other">%d modułu</item>
+    </plurals>
+</resources>

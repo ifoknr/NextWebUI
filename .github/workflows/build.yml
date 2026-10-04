@@ -47,20 +47,20 @@ jobs:
       - name: Upload release
         uses: actions/upload-artifact@v6
         with:
-          name: "KsuWebUI-release"
+          name: "NextWebUI-release"
           path: "./app/build/outputs/apk/release/*.apk"
           compression-level: 9
 
       - name: Upload release mapping
         uses: actions/upload-artifact@v6
         with:
-          name: "KsuWebUI-release-mappings"
+          name: "NextWebUI-release-mappings"
           path: "./app/build/outputs/mapping/release"
           compression-level: 9
 
       - name: Upload debug
         uses: actions/upload-artifact@v6
         with:
-          name: "KsuWebUI-debug"
+          name: "NextWebUI-debug"
           path: "./app/build/outputs/apk/debug/*.apk"
           compression-level: 9

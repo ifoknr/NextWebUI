@@ -86,7 +86,7 @@ android {
 
 base {
     archivesName.set(
-        "KsuWebUI-${versionName}-${gitCommitCount}-$name"
+        "NextWebUI-${versionName}-${gitCommitCount}-$name"
     )
 }
 
