@@ -71,4 +71,9 @@ Available: %2$s</string>
         <item quantity="one">%d update</item>
         <item quantity="other">%d updates</item>
     </plurals>
+    <string name="export_logs">Export logs</string>
+    <string name="export_logs_summary">Save a log file to Downloads to share with the developer</string>
+    <string name="exporting_logs">Exporting logs…</string>
+    <string name="logs_saved">Saved to %s</string>
+    <string name="logs_failed">Could not export logs</string>
 </resources>
