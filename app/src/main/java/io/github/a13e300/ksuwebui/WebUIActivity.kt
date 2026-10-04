@@ -13,6 +13,7 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,7 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @SuppressLint("SetJavaScriptEnabled")
-class WebUIActivity : ComponentActivity(), FileSystemService.Listener {
+class WebUIActivity : AppCompatActivity(), FileSystemService.Listener {
     
     private val webUIState = WebUIState()
     internal lateinit var fileChooserLauncher: ActivityResultLauncher<Intent>

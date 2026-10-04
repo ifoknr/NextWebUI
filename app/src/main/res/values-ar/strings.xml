@@ -30,4 +30,52 @@
         <item quantity="many">%d موديولًا</item>
         <item quantity="other">%d موديول</item>
     </plurals>
+    <string name="search_hint">ابحث في الموديولات</string>
+    <string name="clear">مسح</string>
+    <string name="nav_modules">الموديولات</string>
+    <string name="nav_updates">التحديثات</string>
+    <string name="settings">الإعدادات</string>
+    <string name="update_available">تحديث متوفر</string>
+    <string name="open_webui">فتح الواجهة</string>
+    <string name="action">أكشن</string>
+    <string name="support">الدعم</string>
+    <string name="donate">تبرّع</string>
+    <string name="action_running">جارٍ تشغيل الأكشن…</string>
+    <string name="action_done">تم بنجاح</string>
+    <string name="action_failed">انتهى برمز الخروج %d</string>
+    <string name="close">إغلاق</string>
+    <string name="settings_appearance">المظهر</string>
+    <string name="theme">الثيم</string>
+    <string name="theme_summary">فاتح أو داكن أو حسب النظام</string>
+    <string name="theme_system">تلقائي</string>
+    <string name="theme_light">فاتح</string>
+    <string name="theme_dark">داكن</string>
+    <string name="dynamic_colors_summary">استخدام ألوان خلفية الجهاز</string>
+    <string name="show_disabled_summary">عرض الموديولات الموقوفة أيضاً</string>
+    <string name="webui_only">الموديولات اللي فيها واجهة فقط</string>
+    <string name="webui_only_summary">إخفاء الموديولات بدون واجهة ويب</string>
+    <string name="check_updates">التحقق من التحديثات</string>
+    <string name="check_updates_summary">عبر updateJson لكل موديول</string>
+    <string name="settings_webui">الواجهة (WebUI)</string>
+    <string name="monet_summary">تمرير ألوان التطبيق لصفحات الموديولات</string>
+    <string name="debugging_summary">إضافة أدوات Eruda للمطوّرين</string>
+    <string name="settings_general">عام</string>
+    <string name="language">اللغة</string>
+    <string name="language_summary">اختيار لغة التطبيق</string>
+    <string name="about">حول التطبيق</string>
+    <string name="about_summary">الإصدار والكود المصدري</string>
+    <string name="no_updates">كل الموديولات محدّثة</string>
+    <string name="no_browser">ما فيه تطبيق يفتح هذا الرابط</string>
+    <string name="update_message">المثبّت: %1$s
+المتوفر: %2$s</string>
+    <string name="download">تنزيل</string>
+    <string name="changelog">سجل التغييرات</string>
+    <plurals name="updates_count">
+        <item quantity="zero">لا توجد تحديثات</item>
+        <item quantity="one">تحديث واحد</item>
+        <item quantity="two">تحديثان</item>
+        <item quantity="few">%d تحديثات</item>
+        <item quantity="many">%d تحديثًا</item>
+        <item quantity="other">%d تحديث</item>
+    </plurals>
 </resources>
