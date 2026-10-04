@@ -31,7 +31,7 @@ import androidx.core.content.edit
 class MainActivity : AppCompatActivity(), FileSystemService.Listener {
     private lateinit var binding: ActivityMainBinding
     private var moduleList = emptyList<Module>()
-    private var query = ""
+    private var searchQuery = ""
     private var loading = false
     private val adapter = Adapter()
     private val prefs by lazy { getSharedPreferences("settings", MODE_PRIVATE) }
@@ -105,7 +105,7 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
                 }
 
                 override fun onQueryTextChange(text: String?): Boolean {
-                    query = text.orEmpty().trim()
+                    searchQuery = text.orEmpty().trim()
                     submitList()
                     return true
                 }
@@ -186,7 +186,7 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
     }
 
     private fun submitList() {
-        val filtered = moduleList.filter { it.matches(query) }
+        val filtered = moduleList.filter { it.matches(searchQuery) }
         adapter.submitList(filtered)
         binding.toolbar.subtitle = if (moduleList.isEmpty()) null
         else resources.getQuantityString(R.plurals.modules_count, moduleList.size, moduleList.size)
