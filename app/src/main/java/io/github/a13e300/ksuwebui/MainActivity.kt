@@ -1,11 +1,13 @@
 package io.github.a13e300.ksuwebui
 
-import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.HapticFeedbackConstants
 import android.view.Menu
+import android.widget.Toast
+import androidx.appcompat.widget.SearchView
 import android.view.ViewGroup
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -14,20 +16,24 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.Locale
 import com.topjohnwu.superuser.nio.FileSystemManager
 import io.github.a13e300.ksuwebui.databinding.ActivityMainBinding
 import io.github.a13e300.ksuwebui.databinding.ItemModuleBinding
 import androidx.core.net.toUri
 import androidx.core.content.edit
 
-@SuppressLint("NotifyDataSetChanged")
 class MainActivity : AppCompatActivity(), FileSystemService.Listener {
     private lateinit var binding: ActivityMainBinding
     private var moduleList = emptyList<Module>()
-    private lateinit var adapter: Adapter
+    private var searchQuery = ""
+    private var loading = false
+    private val adapter = Adapter()
     private val prefs by lazy { getSharedPreferences("settings", MODE_PRIVATE) }
     private var shouldRefresh = false
 
@@ -64,16 +70,23 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
             v.updatePadding(left = cutoutAndBars.left, top = cutoutAndBars.top, right = cutoutAndBars.right)
             return@setOnApplyWindowInsetsListener insets
         }
+        val listBottomPadding = binding.list.paddingBottom
         ViewCompat.setOnApplyWindowInsetsListener(binding.list) { v, insets ->
             val cutoutAndBars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
             )
-            v.updatePadding(left = cutoutAndBars.left, bottom = cutoutAndBars.bottom, right = cutoutAndBars.right)
+            v.updatePadding(left = cutoutAndBars.left, bottom = listBottomPadding + cutoutAndBars.bottom, right = cutoutAndBars.right)
             return@setOnApplyWindowInsetsListener insets
         }
 
-        adapter = Adapter()
+        binding.list.setHasFixedSize(true)
         binding.list.adapter = adapter
+        binding.swipeRefresh.setColorSchemeColors(
+            com.google.android.material.color.MaterialColors.getColor(binding.root, android.R.attr.colorPrimary)
+        )
+        binding.swipeRefresh.setProgressBackgroundColorSchemeColor(
+            com.google.android.material.color.MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorSurfaceContainerHigh)
+        )
         binding.swipeRefresh.setOnRefreshListener {
             refresh()
         }
@@ -82,6 +95,22 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
+        (menu.findItem(R.id.search).actionView as? SearchView)?.apply {
+            queryHint = getString(R.string.search)
+            maxWidth = Int.MAX_VALUE
+            setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+                override fun onQueryTextSubmit(text: String?): Boolean {
+                    clearFocus()
+                    return true
+                }
+
+                override fun onQueryTextChange(text: String?): Boolean {
+                    searchQuery = text.orEmpty().trim()
+                    submitList()
+                    return true
+                }
+            })
+        }
         menu.findItem(R.id.enable_webview_debugging).apply {
             isChecked = prefs.getBoolean("enable_web_debugging", BuildConfig.DEBUG)
             setOnMenuItemClickListener {
@@ -98,6 +127,16 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
                 prefs.edit { putBoolean("show_disabled", newValue) }
                 it.isChecked = newValue
                 refresh()
+                true
+            }
+        }
+        menu.findItem(R.id.dynamic_colors).apply {
+            // Wallpaper colors need Android 12+
+            isVisible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+            isChecked = prefs.getBoolean(App.PREF_DYNAMIC_COLORS, false)
+            setOnMenuItemClickListener {
+                prefs.edit(commit = true) { putBoolean(App.PREF_DYNAMIC_COLORS, !it.isChecked) }
+                recreate()
                 true
             }
         }
@@ -123,117 +162,167 @@ class MainActivity : AppCompatActivity(), FileSystemService.Listener {
 
     private fun refresh() {
         binding.swipeRefresh.isRefreshing = true
-        moduleList = emptyList()
-        adapter.notifyDataSetChanged()
-        binding.info.setText(R.string.loading)
-        binding.info.isVisible = true
+        loading = true
+        if (moduleList.isEmpty()) {
+            showInfo(R.string.loading)
+        }
         FileSystemService.start(this)
     }
+
+    private fun showInfo(text: Int?) {
+        binding.empty.isVisible = text != null
+        if (text != null) {
+            binding.info.setText(text)
+            binding.emptyIcon.isVisible = text != R.string.loading
+        }
+    }
+
+    private fun Module.matches(q: String): Boolean {
+        if (q.isEmpty()) return true
+        return name.contains(q, ignoreCase = true) ||
+                id.contains(q, ignoreCase = true) ||
+                author.contains(q, ignoreCase = true) ||
+                desc.contains(q, ignoreCase = true)
+    }
+
+    private fun submitList() {
+        val filtered = moduleList.filter { it.matches(searchQuery) }
+        adapter.submitList(filtered)
+        binding.toolbar.subtitle = if (moduleList.isEmpty()) null
+        else resources.getQuantityString(R.plurals.modules_count, moduleList.size, moduleList.size)
+        when {
+            loading && moduleList.isEmpty() -> showInfo(R.string.loading)
+            moduleList.isEmpty() -> showInfo(R.string.no_modules)
+            filtered.isEmpty() -> showInfo(R.string.no_results)
+            else -> showInfo(null)
+        }
+    }
+
+    private fun sortModules(list: List<Module>) =
+        list.sortedWith(compareByDescending<Module> { it.pinned }.thenBy { it.name.lowercase(Locale.ROOT) })
 
     override fun onServiceAvailable(fs: FileSystemManager) {
         App.executor.submit {
             val mods = mutableListOf<Module>()
             val showDisabled = prefs.getBoolean("show_disabled", false)
-            fs.getFile("/data/adb/modules").listFiles()!!.forEach { f ->
-                if (!f.isDirectory) return@forEach
-                if (!fs.getFile(f, "webroot").isDirectory) return@forEach
-                if (!fs.getFile(f, "module.prop").exists()) return@forEach
-                if (fs.getFile(f, "disable").exists() && !showDisabled) return@forEach
-                var name = f.name
-                val id = f.name
-                var author = "?"
-                var version = "?"
-                var desc = ""
-                fs.getFile(f, "module.prop").newInputStream().bufferedReader().use {
-                    it.lines().forEach { l ->
-                        val ls = l.split("=", limit = 2)
-                        if (ls.size == 2) {
-                            if (ls[0] == "name") name = ls[1]
-                            else if (ls[0] == "description") desc = ls[1]
-                            else if (ls[0] == "author") author = ls[1]
-                            else if (ls[0] == "version") version = ls[1]
-                        }
-
-                    }
-                }
-                mods.add(Module(name, id, desc, author, version))
-            }
             val pinnedIds = getPinnedModules()
-            mods.forEach { it.pinned = it.id in pinnedIds }
-            mods.sortWith(compareByDescending<Module> { it.pinned }.thenBy { it.name.lowercase() })
+            fs.getFile("/data/adb/modules").listFiles()?.forEach { f ->
+                if (!f.isDirectory) return@forEach
+                if (!isValidModuleId(f.name)) return@forEach
+                if (!fs.getFile(f, "webroot").isDirectory) return@forEach
+                val propFile = fs.getFile(f, "module.prop")
+                if (!propFile.exists()) return@forEach
+                val disabled = fs.getFile(f, "disable").exists()
+                if (disabled && !showDisabled) return@forEach
+                val props = runCatching { parseModuleProp(propFile.newInputStream()) }.getOrDefault(emptyMap())
+                val id = f.name
+                mods.add(
+                    Module(
+                        name = props["name"]?.takeIf { it.isNotBlank() } ?: id,
+                        id = id,
+                        desc = props["description"].orEmpty(),
+                        author = props["author"].orEmpty(),
+                        version = props["version"].orEmpty(),
+                        disabled = disabled,
+                        pinned = id in pinnedIds
+                    )
+                )
+            }
+            val sorted = sortModules(mods)
             runOnUiThread {
-                moduleList = mods
-                adapter.notifyDataSetChanged()
+                if (isDestroyed) return@runOnUiThread
+                loading = false
+                moduleList = sorted
                 binding.swipeRefresh.isRefreshing = false
-                if (mods.isEmpty()) {
-                    binding.info.setText(R.string.no_modules)
-                    binding.info.isVisible = true
-                } else {
-                    binding.info.isVisible = false
-                }
+                submitList()
             }
         }
     }
 
     override fun onLaunchFailed() {
+        loading = false
         moduleList = emptyList()
-        adapter.notifyDataSetChanged()
-        binding.info.setText(R.string.please_grant_root)
-        binding.info.isVisible = true
+        adapter.submitList(emptyList())
+        binding.toolbar.subtitle = null
+        showInfo(R.string.please_grant_root)
         binding.swipeRefresh.isRefreshing = false
     }
 
-    data class Module(val name: String, val id: String, val desc: String, val author: String, val version: String, var pinned: Boolean = false)
+    private fun togglePin(item: Module) {
+        val pinnedIds = getPinnedModules()
+        val pinned = item.id !in pinnedIds
+        if (pinned) pinnedIds.add(item.id) else pinnedIds.remove(item.id)
+        savePinnedModules(pinnedIds)
+        moduleList = sortModules(moduleList.map { if (it.id == item.id) it.copy(pinned = pinned) else it })
+        submitList()
+        Toast.makeText(this, if (pinned) R.string.pin_added else R.string.pin_removed, Toast.LENGTH_SHORT).show()
+    }
+
+    data class Module(
+        val name: String,
+        val id: String,
+        val desc: String,
+        val author: String,
+        val version: String,
+        val disabled: Boolean = false,
+        val pinned: Boolean = false
+    )
 
     class ViewHolder(val binding: ItemModuleBinding) : RecyclerView.ViewHolder(binding.root)
 
-    inner class Adapter : RecyclerView.Adapter<ViewHolder>() {
+    private object ModuleDiff : DiffUtil.ItemCallback<Module>() {
+        override fun areItemsTheSame(oldItem: Module, newItem: Module) = oldItem.id == newItem.id
+        override fun areContentsTheSame(oldItem: Module, newItem: Module) = oldItem == newItem
+    }
+
+    inner class Adapter : ListAdapter<Module, ViewHolder>(ModuleDiff) {
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            return ViewHolder(
+            val holder = ViewHolder(
                 ItemModuleBinding.inflate(
                     LayoutInflater.from(parent.context), parent, false
                 )
             )
-        }
-
-        override fun getItemCount(): Int = moduleList.size
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val item = moduleList[position]
-            val id = item.id
-            val name = item.name
-            holder.binding.name.text = name
-            holder.binding.author.text = resources.getString(R.string.author, item.author)
-            holder.binding.version.text = resources.getString(R.string.version, item.version)
-            holder.binding.desc.text = item.desc
-            holder.binding.name.setCompoundDrawablesRelativeWithIntrinsicBounds(
-                0, 0, if (item.pinned) R.drawable.ic_push_pin else 0, 0
-            )
             holder.binding.root.setOnClickListener {
+                val item = currentList.getOrNull(holder.bindingAdapterPosition) ?: return@setOnClickListener
                 shouldRefresh = true
                 startActivity(
                     Intent(this@MainActivity, WebUIActivity::class.java)
-                        .setData("ksuwebui://webui/$id".toUri())
-                        .putExtra("id", id)
-                        .putExtra("name", name)
+                        .setData("ksuwebui://webui/${item.id}".toUri())
+                        .putExtra("id", item.id)
+                        .putExtra("name", item.name)
                 )
             }
-            holder.binding.root.setOnLongClickListener {
-                item.pinned = !item.pinned
-                val pinnedIds = getPinnedModules()
-                if (item.pinned) {
-                    pinnedIds.add(item.id)
-                } else {
-                    pinnedIds.remove(item.id)
-                }
-                savePinnedModules(pinnedIds)
-                moduleList = moduleList.sortedWith(compareByDescending<Module> { it.pinned }.thenBy { it.name.lowercase() })
-                notifyDataSetChanged()
+            holder.binding.root.setOnLongClickListener { v ->
+                val item = currentList.getOrNull(holder.bindingAdapterPosition) ?: return@setOnLongClickListener false
+                v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                togglePin(item)
                 true
             }
+            return holder
         }
 
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val item = getItem(position)
+            val b = holder.binding
+            b.name.text = item.name
+            b.avatar.text = item.name.avatarLetter()
+            b.meta.text = listOf(item.version, item.author)
+                .filter { it.isNotBlank() }
+                .joinToString("  ·  ")
+                .ifEmpty { getString(R.string.unknown) }
+            b.desc.text = item.desc
+            b.desc.isVisible = item.desc.isNotBlank()
+            b.pin.isVisible = item.pinned
+            b.root.alpha = if (item.disabled) 0.55f else 1f
+        }
+    }
+
+    private fun String.avatarLetter(): String {
+        val i = indexOfFirst { it.isLetterOrDigit() }
+        if (i < 0) return "•"
+        val cp = codePointAt(i)
+        return String(Character.toChars(cp)).uppercase()
     }
 
     override fun onDestroy() {

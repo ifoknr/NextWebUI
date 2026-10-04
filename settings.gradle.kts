@@ -25,5 +25,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "KsuWebUI"
+rootProject.name = "NextWebUI"
 include(":app")

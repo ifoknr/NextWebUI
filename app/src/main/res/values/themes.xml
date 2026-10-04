@@ -1,10 +1,31 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Theme.KsuWebUI" parent="Theme.Material3.DynamicColors.DayNight.NoActionBar">
+    <!-- Base application theme: a calm sage palette. Wallpaper (Monet) colors
+         are layered on top at runtime when the user enables them. -->
+    <style name="Theme.KsuWebUI" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/calm_primary</item>
+        <item name="colorOnPrimary">@color/calm_on_primary</item>
+        <item name="colorPrimaryContainer">@color/calm_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/calm_on_primary_container</item>
+        <item name="colorSecondary">@color/calm_secondary</item>
+        <item name="colorOnSecondary">@color/calm_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/calm_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/calm_on_secondary_container</item>
+        <item name="colorTertiary">@color/calm_tertiary</item>
+        <item name="colorTertiaryContainer">@color/calm_tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/calm_on_tertiary_container</item>
+        <item name="android:colorBackground">@color/calm_background</item>
+        <item name="colorOnBackground">@color/calm_on_background</item>
+        <item name="colorSurface">@color/calm_surface</item>
+        <item name="colorOnSurface">@color/calm_on_surface</item>
+        <item name="colorSurfaceVariant">@color/calm_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/calm_on_surface_variant</item>
+        <item name="colorOutline">@color/calm_outline</item>
+        <item name="colorOutlineVariant">@color/calm_outline_variant</item>
+        <item name="colorSurfaceContainerLowest">@color/calm_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/calm_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/calm_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/calm_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/calm_surface_container_highest</item>
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="o_mr1">shortEdges</item>
-    </style>
-    <style name="Theme.KernelSU.WebUI" parent="Theme.KsuWebUI">
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
     </style>
 </resources>

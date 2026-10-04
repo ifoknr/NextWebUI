@@ -76,7 +76,8 @@ private const val DOWNLOAD_JS = """
 
 fun WebUIActivity.prepareWebView(state: WebUIState): Boolean {
     val moduleId = intent.getStringExtra("id")
-    if (moduleId == null) {
+    if (moduleId == null || !isValidModuleId(moduleId)) {
+        android.widget.Toast.makeText(this, R.string.invalid_module, android.widget.Toast.LENGTH_SHORT).show()
         finish()
         return false
     }
@@ -88,7 +89,7 @@ fun WebUIActivity.prepareWebView(state: WebUIState): Boolean {
 fun WebUIActivity.initWebView(fs: FileSystemManager, state: WebUIState) {
     val webRoot = File("${state.moduleDir}/webroot")
     val webViewAssetLoader = WebViewAssetLoader.Builder()
-        .setDomain("mui.kernelsu.org")
+        .setDomain(WEB_DOMAIN)
         .addPathHandler(
             "/",
             RemoteFsPathHandler(
@@ -111,7 +112,7 @@ fun WebUIActivity.initWebView(fs: FileSystemManager, state: WebUIState) {
             val url = request.url
 
             // Handle ksu://icon/[packageName] to serve app icon via WebView
-            if (url.scheme.equals("ksu", ignoreCase = true) && url.host.equals("icon", ignoreCase = true)) {
+            if (url.scheme.equals(KSU_SCHEME, ignoreCase = true) && url.host.equals(ICON_HOST, ignoreCase = true)) {
                 val packageName = url.path?.substring(1)
                 if (!packageName.isNullOrEmpty()) {
                     val icon = AppIconUtil.loadAppIconSync(this@initWebView, packageName, 512)
@@ -125,6 +126,21 @@ fun WebUIActivity.initWebView(fs: FileSystemManager, state: WebUIState) {
             }
 
             return webViewAssetLoader.shouldInterceptRequest(url)
+        }
+
+        // Root bridges are only for the module's own pages: open anything else outside.
+        override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+            val url = request.url
+            if (url.scheme.equals("https", ignoreCase = true) && url.host.equals(WEB_DOMAIN, ignoreCase = true)) {
+                return false
+            }
+            if (request.isForMainFrame) {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                } catch (_: ActivityNotFoundException) {
+                }
+            }
+            return true
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
@@ -181,7 +197,7 @@ fun WebUIActivity.initWebView(fs: FileSystemManager, state: WebUIState) {
 
             override fun onJsAlert(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
                 MaterialAlertDialogBuilder(this@initWebView)
-                    .setTitle("Alert")
+                    .setTitle(R.string.dialog_alert)
                     .setMessage(message)
                     .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
                     .setOnCancelListener { result?.cancel() }
@@ -191,7 +207,7 @@ fun WebUIActivity.initWebView(fs: FileSystemManager, state: WebUIState) {
 
             override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: JsResult?): Boolean {
                 MaterialAlertDialogBuilder(this@initWebView)
-                    .setTitle("Confirm")
+                    .setTitle(R.string.dialog_confirm)
                     .setMessage(message)
                     .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm() }
                     .setNegativeButton(android.R.string.cancel) { _, _ -> result?.cancel() }
@@ -217,7 +233,7 @@ fun WebUIActivity.initWebView(fs: FileSystemManager, state: WebUIState) {
                 container.addView(input)
 
                 MaterialAlertDialogBuilder(this@initWebView)
-                    .setTitle("Prompt")
+                    .setTitle(R.string.dialog_prompt)
                     .setMessage(message)
                     .setView(container)
                     .setPositiveButton(android.R.string.ok) { _, _ -> result?.confirm(input.text.toString()) }
@@ -227,6 +243,6 @@ fun WebUIActivity.initWebView(fs: FileSystemManager, state: WebUIState) {
                 return true
             }
         }
-        loadUrl("https://mui.kernelsu.org/index.html")
+        loadUrl("https://$WEB_DOMAIN/index.html")
     }
 }

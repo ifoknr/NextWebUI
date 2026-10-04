@@ -31,7 +31,7 @@
             android:autoRemoveFromRecents="true"
             android:documentLaunchMode="intoExisting"
             android:configChanges="density|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|locale|layoutDirection|fontScale|keyboard|keyboardHidden"
-            android:exported="true" />
+            android:exported="false" />
 
     </application>
 

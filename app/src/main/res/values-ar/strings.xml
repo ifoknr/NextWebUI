@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="enable_webview_debugging">وضع التصحيح</string>
+    <string name="please_grant_root">الرجاء منح صلاحية الروت</string>
+    <string name="no_modules">لا توجد موديولات بواجهة ويب</string>
+    <string name="loading">جارٍ التحميل …</string>
+    <string name="author">المطوّر: %s</string>
+    <string name="version">الإصدار: %s</string>
+    <string name="show_disabled">إظهار المعطّلة</string>
+    <string name="enable_monet_color">ألوان الثيم داخل الواجهة</string>
+    <string name="start_downloading">بدأ التنزيل</string>
+    <string name="download_failed">فشل التنزيل: %s</string>
+    <string name="search">بحث</string>
+    <string name="pinned">مثبّت</string>
+    <string name="dynamic_colors">ألوان الخلفية</string>
+    <string name="no_results">لا توجد نتائج مطابقة</string>
+    <string name="pin_added">تم التثبيت في الأعلى</string>
+    <string name="pin_removed">تم إلغاء التثبيت</string>
+    <string name="dialog_alert">تنبيه</string>
+    <string name="dialog_confirm">تأكيد</string>
+    <string name="dialog_prompt">إدخال</string>
+    <string name="save_failed">تعذّر حفظ الملف</string>
+    <string name="unknown">غير معروف</string>
+    <string name="invalid_module">موديول غير صالح</string>
+    <plurals name="modules_count">
+        <item quantity="zero">لا توجد موديولات</item>
+        <item quantity="one">موديول واحد</item>
+        <item quantity="two">موديولان</item>
+        <item quantity="few">%d موديولات</item>
+        <item quantity="many">%d موديولًا</item>
+        <item quantity="other">%d موديول</item>
+    </plurals>
+</resources>
