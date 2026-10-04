@@ -8,6 +8,10 @@ import android.provider.Settings
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
@@ -91,10 +95,34 @@ class SettingsPage(
                     }
                 }
             }
+            valueRow(it, R.drawable.ic_bug, R.string.export_logs, R.string.export_logs_summary, null) { exportLogs() }
             valueRow(it, R.drawable.ic_info, R.string.about, R.string.about_summary, { BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")" }) {
                 runCatching {
                     activity.startActivity(Intent(Intent.ACTION_VIEW, PROJECT_URL.toUri()))
                 }
+            }
+        }
+    }
+
+    private fun exportLogs() {
+        Toast.makeText(activity, R.string.exporting_logs, Toast.LENGTH_SHORT).show()
+        App.executor.submit {
+            val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+            val name = "NextWebUI-log-$stamp.txt"
+            val path = "/sdcard/Download/$name"
+            val header = "NextWebUI ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) | " +
+                    "Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT}) | ${Build.MANUFACTURER} ${Build.MODEL}"
+            val ok = runCatching {
+                withNewRootShell {
+                    newJob().add(
+                        "{ echo ${shellQuote(header)}; logcat -d -v threadtime -t 5000; } > ${shellQuote(path)} 2>&1"
+                    ).exec().isSuccess
+                }
+            }.getOrDefault(false)
+            activity.runOnUiThread {
+                val msg = if (ok) activity.getString(R.string.logs_saved, "Download/$name")
+                else activity.getString(R.string.logs_failed)
+                Toast.makeText(activity, msg, Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -143,9 +171,14 @@ class SettingsPage(
         b.toggle.isChecked = prefs.getBoolean(key, default)
         b.root.setOnClickListener {
             val value = !prefs.getBoolean(key, default)
-            prefs.edit(commit = true) { putBoolean(key, value) }
+            // apply() writes to disk in the background; the in-memory value updates at once.
+            prefs.edit { putBoolean(key, value) }
             b.toggle.isChecked = value
-            onChanged()
+            // Let the switch animation finish before doing heavier work (reload, recreate).
+            b.root.removeCallbacks(b.root.tag as? Runnable)
+            val task = Runnable { onChanged() }
+            b.root.tag = task
+            b.root.postDelayed(task, 250)
         }
     }
 

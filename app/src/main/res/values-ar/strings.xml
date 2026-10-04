@@ -78,4 +78,9 @@
         <item quantity="many">%d تحديثًا</item>
         <item quantity="other">%d تحديث</item>
     </plurals>
+    <string name="export_logs">تصدير السجل (Log)</string>
+    <string name="export_logs_summary">حفظ ملف السجل في التنزيلات لإرساله للمطوّر</string>
+    <string name="exporting_logs">جارٍ تصدير السجل…</string>
+    <string name="logs_saved">تم الحفظ في %s</string>
+    <string name="logs_failed">تعذّر تصدير السجل</string>
 </resources>
