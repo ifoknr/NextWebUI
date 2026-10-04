@@ -168,6 +168,10 @@ class SettingsPage(
     ) {
         val b = row(parent, icon, title, summary)
         b.toggle.isVisible = true
+        // Every row shares the same view id, so Android's automatic state restore after
+        // recreate() (theme / wallpaper colors) would copy one switch's state onto all of
+        // them. The prefs are the source of truth; don't let the framework restore it.
+        b.toggle.isSaveEnabled = false
         b.toggle.isChecked = prefs.getBoolean(key, default)
         b.root.setOnClickListener {
             val value = !prefs.getBoolean(key, default)
